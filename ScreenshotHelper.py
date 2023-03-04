@@ -1,10 +1,18 @@
-import asyncio
+from asyncio import get_event_loop
 from pyppeteer import launch, errors
-import time
+from time import sleep
 import excelhandler
-import os
+import os.path
+from os import mkdir
 
 
+config = input("輸入Enter預設進行後台模式；或輸入 1 開啟前台模式，請注意前台模式運行緩慢，只建議測試時使用：")
+if config == "1":
+    config = False
+    print("開啟前台模式")
+else:
+    config = True
+    print("預設進行後台模式")
 print("開始執行截圖...")
 
 
@@ -12,7 +20,7 @@ async def main(url_dic):
     # 以excel名稱命名建立資料夾，若已存在同名資料夾則略過
     new_path = f"scrnshots-{excelhandler.file_name}"
     if not os.path.exists(new_path):
-        os.mkdir(new_path)
+        mkdir(new_path)
     # 爬蟲並截圖
     for key, value in url_dic.items():
         try:
@@ -21,13 +29,14 @@ async def main(url_dic):
             if os.path.isfile(image_path):
                 print(f"略過步驟：編號: {key} 的截圖已存在")
             else:
-                browser = await launch({"dumpio": True})
+                browser = await launch({"headless": config, "dumpio": True})
                 context = await browser.createIncognitoBrowserContext()  # 開啟無痕模式
                 page = await context.newPage()
                 try:
                     await page.goto(value, timeout=60000)
                 except errors.TimeoutError as e:
-                    print("連線逾時")
+                    print(f"編號: {key} 連線逾時")
+                    await browser.close()
 
                 # 如果是自由時報新聞、地產天下，自動按下取消訂閱，再捲動到新聞底端以擷取到lazy load圖片
                 if "ltn.com.tw" in value:
@@ -120,16 +129,18 @@ async def main(url_dic):
                     except:
                         pass
 
-                time.sleep(2)   # 等待2秒(部分網站如新浪需要約至少2秒才能讀取到圖片)
+                sleep(2)   # 等待2秒(部分網站如新浪需要約至少2秒才能讀取到圖片)
                 await page.screenshot(path=image_path, fullPage=True)
                 print(f"編號: {key} 已完成截圖")
                 await browser.close()
+        except KeyboardInterrupt as e:
+            await browser.close()
         except Exception as e:
             print(e)
     print("程式已運行完畢\n")
 
 while True:
-    asyncio.get_event_loop().run_until_complete(main(excelhandler.url_dic))
+    get_event_loop().run_until_complete(main(excelhandler.url_dic))
     print("若有新聞需要重新截圖，請將該新聞的舊截圖移出資料夾或刪除")
     while True:
         flag = input("請輸入1 + Enter以重新執行截圖(已有截圖的新聞將被略過)，或直接輸入Enter以退出程式：")

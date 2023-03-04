@@ -2,7 +2,7 @@ from openpyxl import load_workbook
 
 
 print("""
-版權聲明
+版權聲明v.1.2
 
 ------------
 
